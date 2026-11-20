@@ -53,4 +53,82 @@ const products = [
 ];
 
 const T = {
-  ar:{app:'إسلامكو',
+  ar:{app:'إسلامكو', home:'الرئيسية', cart:'السلة', add:'أضف للسلة', kd:'د.ك', kg:'كجم', total:'الإجمالي', empty:'السلة فاضية', addr:'العنوان', phone:'رقم الهاتف', send:'إرسال الطلب على واتساب', lang:'English', need:'اكتب العنوان والهاتف', order:'طلب جديد'},
+  en:{app:'ISLAMKO', home:'Home', cart:'Cart', add:'Add to cart', kd:'KD', kg:'kg', total:'Total', empty:'Your cart is empty', addr:'Address', phone:'Phone', send:'Send order via WhatsApp', lang:'العربية', need:'Enter address and phone', order:'New order'}
+};
+
+let lang = localStorage.getItem('lang') || 'ar';
+let page = 'home';
+let cart = JSON.parse(localStorage.getItem('cart') || '[]');
+
+const t = (k) => T[lang][k];
+const save = () => localStorage.setItem('cart', JSON.stringify(cart));
+const count = () => cart.reduce((s,i)=>s+i.qty,0);
+const total = () => cart.reduce((s,i)=>s+i.price*i.qty,0);
+
+function add(id){
+  const f = cart.find(i=>i.id===id);
+  if(f) f.qty++; else cart.push({...products.find(p=>p.id===id), qty:1});
+  save(); render();
+}
+function change(id, d){
+  const f = cart.find(i=>i.id===id);
+  f.qty += d;
+  if(f.qty<=0) cart = cart.filter(i=>i.id!==id);
+  save(); render();
+}
+function go(p){ page = p; render(); window.scrollTo(0,0); }
+
+function send(){
+  const a = document.getElementById('addr').value.trim();
+  const p = document.getElementById('phone').value.trim();
+  if(!a || !p) return alert(t('need'));
+  const lines = cart.map(i=>`- ${lang==='ar'?i.ar:i.en} × ${i.qty} = ${(i.price*i.qty).toFixed(3)} ${t('kd')}`).join('\n');
+  const msg = `${t('order')}\n${lines}\n${t('total')}: ${total().toFixed(3)} ${t('kd')}\n${t('addr')}: ${a}\n${t('phone')}: ${p}`;
+  window.open('https://wa.me/' + WHATSAPP + '?text=' + encodeURIComponent(msg), '_blank');
+  cart = []; save(); render();
+}
+
+function render(){
+  document.documentElement.dir = lang==='ar' ? 'rtl' : 'ltr';
+  document.documentElement.lang = lang;
+  document.getElementById('title').textContent = t('app');
+  document.getElementById('langBtn').textContent = t('lang');
+  document.getElementById('langBtn').onclick = () => { lang = lang==='ar'?'en':'ar'; localStorage.setItem('lang', lang); render(); };
+  const n = count();
+  document.getElementById('tHome').textContent = t('home');
+  document.getElementById('tCart').innerHTML = t('cart') + (n ? ` <span class="badge">${n}</span>` : '');
+  document.getElementById('tHome').className = page==='home' ? 'on' : '';
+  document.getElementById('tCart').className = page==='cart' ? 'on' : '';
+
+  const app = document.getElementById('app');
+  if(page==='home'){
+    app.innerHTML = '<div class="grid">' + products.map(p => `
+      <div class="card">
+        <div class="emoji">${p.emoji}</div>
+        <div class="info">
+          <div>${lang==='ar'?p.ar:p.en}</div>
+          <div class="price">${p.price.toFixed(3)} ${t('kd')} / ${t('kg')}</div>
+          <button class="primary" onclick="add(${p.id})">${t('add')}</button>
+        </div>
+      </div>`).join('') + '</div>';
+  } else {
+    if(!cart.length){ app.innerHTML = `<div class="page">${t('empty')}</div>`; return; }
+    app.innerHTML = '<div class="page">' + cart.map(i => `
+      <div class="row">
+        <span>${lang==='ar'?i.ar:i.en}</span>
+        <span class="qty"><button onclick="change(${i.id},-1)">−</button> ${i.qty} <button onclick="change(${i.id},1)">+</button></span>
+        <span>${(i.price*i.qty).toFixed(3)} ${t('kd')}</span>
+      </div>`).join('') + `
+      <div class="row"><b>${t('total')}</b><b>${total().toFixed(3)} ${t('kd')}</b></div>
+      <input id="addr" placeholder="${t('addr')}" />
+      <input id="phone" placeholder="${t('phone')}" inputmode="tel" />
+      <button class="primary" onclick="send()">${t('send')}</button>
+    </div>`;
+  }
+}
+render();
+</script>
+</body>
+</html>
+
