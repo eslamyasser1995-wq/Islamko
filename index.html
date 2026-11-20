@@ -19,9 +19,9 @@ body{background:var(--bg);color:var(--navy);padding-bottom:90px}
 .emoji{font-size:56px;text-align:center;padding:16px;background:#E6F9F9}
 .info{padding:10px}
 .price{color:#0a9a9a;font-weight:700;margin:4px 0}
-.primary{background:var(--turq);color:#fff;border:0;border-radius:12px;padding:10px;font-weight:700;width:100%;font-size:15px}
+.primary{background:var(--turq);color:#fff;border:0;border-radius:12px;padding:10px;font-weight:700;width:100%;font-size:15px;margin-top:6px}
 .tabbar{position:fixed;bottom:0;left:0;right:0;background:#fff;display:flex;justify-content:space-around;padding:10px 0 20px;border-top:1px solid #dde6ee}
-.tabbar a{color:var(--navy);font-size:15px;padding:6px 18px;border-radius:10px}
+.tabbar a{color:var(--navy);font-size:15px;padding:6px 14px;border-radius:10px}
 .tabbar a.on{background:var(--turq);color:#fff}
 .page{padding:16px}
 .row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #e3ebf2}
@@ -36,50 +36,64 @@ input{width:100%;padding:12px;border:1px solid #cfdbe6;border-radius:10px;margin
 <nav class="tabbar">
   <a id="tHome" onclick="go('home')"></a>
   <a id="tCart" onclick="go('cart')"></a>
+  <a id="tAdmin" onclick="go('admin')"></a>
 </nav>
 
-<script>
-const WHATSAPP = '96500000000'; // غيّر الرقم لرقمك بصيغة دولية بدون +
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getFirestore, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 
-const products = [
-  {id:1, ar:'هامور طازج', en:'Fresh Hamour', price:4.5, emoji:'🐟'},
-  {id:2, ar:'زبيدي', en:'Zobaidi', price:6.0, emoji:'🐠'},
-  {id:3, ar:'سبيطي', en:'Sobaity', price:5.25, emoji:'🐟'},
-  {id:4, ar:'روبيان كويتي', en:'Kuwaiti Shrimp', price:7.0, emoji:'🦐'},
-  {id:5, ar:'ديري', en:'Dairy Fish', price:3.75, emoji:'🐡'},
-  {id:6, ar:'صافي', en:'Safi', price:4.0, emoji:'🐟'},
-  {id:7, ar:'جمبري', en:'Prawns', price:8.5, emoji:'🦐'},
-  {id:8, ar:'حبار', en:'Squid', price:3.0, emoji:'🦑'}
-];
+const app0 = initializeApp({
+  apiKey: 'AIzaSyDc3umf_siCBW4bSF9kTQ1aVwWBtStcA_Y',
+  authDomain: 'islamko-680bc.firebaseapp.com',
+  projectId: 'islamko-680bc',
+  storageBucket: 'islamko-680bc.firebasestorage.app',
+  messagingSenderId: '10514331836',
+  appId: '1:10514331836:web:09cafe54c2a9e4daf138b9'
+});
+const db = getFirestore(app0);
+const auth = getAuth(app0);
+
+const WHATSAPP = '96567015589';
 
 const T = {
-  ar:{app:'إسلامكو', home:'الرئيسية', cart:'السلة', add:'أضف للسلة', kd:'د.ك', kg:'كجم', total:'الإجمالي', empty:'السلة فاضية', addr:'العنوان', phone:'رقم الهاتف', send:'إرسال الطلب على واتساب', lang:'English', need:'اكتب العنوان والهاتف', order:'طلب جديد'},
-  en:{app:'ISLAMKO', home:'Home', cart:'Cart', add:'Add to cart', kd:'KD', kg:'kg', total:'Total', empty:'Your cart is empty', addr:'Address', phone:'Phone', send:'Send order via WhatsApp', lang:'العربية', need:'Enter address and phone', order:'New order'}
+  ar:{app:'إسلامكو', home:'الرئيسية', cart:'السلة', admin:'الإدارة', add:'أضف للسلة', kd:'د.ك', kg:'كجم', total:'الإجمالي', empty:'السلة فاضية', addr:'العنوان', phone:'رقم الهاتف', send:'إرسال الطلب على واتساب', lang:'English', need:'اكتب العنوان والهاتف', order:'طلب جديد', login:'دخول', email:'الإيميل', pass:'كلمة المرور', logout:'خروج', save:'حفظ', del:'حذف', newp:'إضافة منتج', nameAr:'الاسم بالعربي', nameEn:'الاسم بالإنجليزي', price:'السعر', img:'رابط الصورة', wrong:'بيانات خاطئة'},
+  en:{app:'ISLAMKO', home:'Home', cart:'Cart', admin:'Admin', add:'Add to cart', kd:'KD', kg:'kg', total:'Total', empty:'Your cart is empty', addr:'Address', phone:'Phone', send:'Send order via WhatsApp', lang:'العربية', need:'Enter address and phone', order:'New order', login:'Login', email:'Email', pass:'Password', logout:'Logout', save:'Save', del:'Delete', newp:'Add product', nameAr:'Arabic name', nameEn:'English name', price:'Price', img:'Image URL', wrong:'Wrong credentials'}
 };
 
 let lang = localStorage.getItem('lang') || 'ar';
 let page = 'home';
+let products = [];
+let user = null;
 let cart = JSON.parse(localStorage.getItem('cart') || '[]');
 
 const t = (k) => T[lang][k];
 const save = () => localStorage.setItem('cart', JSON.stringify(cart));
 const count = () => cart.reduce((s,i)=>s+i.qty,0);
 const total = () => cart.reduce((s,i)=>s+i.price*i.qty,0);
+const pic = (p) => p.img ? `<img src="${p.img}" style="width:100%;height:120px;object-fit:cover">` : `<div class="emoji">${p.emoji || '🐟'}</div>`;
 
-function add(id){
+onSnapshot(collection(db, 'products'), (s) => {
+  products = s.docs.map((d) => ({ id: d.id, ...d.data() }));
+  render();
+});
+onAuthStateChanged(auth, (u) => { user = u; render(); });
+
+window.add = (id) => {
   const f = cart.find(i=>i.id===id);
   if(f) f.qty++; else cart.push({...products.find(p=>p.id===id), qty:1});
   save(); render();
-}
-function change(id, d){
+};
+window.change = (id, d) => {
   const f = cart.find(i=>i.id===id);
   f.qty += d;
   if(f.qty<=0) cart = cart.filter(i=>i.id!==id);
   save(); render();
-}
-function go(p){ page = p; render(); window.scrollTo(0,0); }
+};
+window.go = (p) => { page = p; render(); window.scrollTo(0,0); };
 
-function send(){
+window.send = () => {
   const a = document.getElementById('addr').value.trim();
   const p = document.getElementById('phone').value.trim();
   if(!a || !p) return alert(t('need'));
@@ -87,7 +101,27 @@ function send(){
   const msg = `${t('order')}\n${lines}\n${t('total')}: ${total().toFixed(3)} ${t('kd')}\n${t('addr')}: ${a}\n${t('phone')}: ${p}`;
   window.open('https://wa.me/' + WHATSAPP + '?text=' + encodeURIComponent(msg), '_blank');
   cart = []; save(); render();
-}
+};
+
+window.login = async () => {
+  try {
+    await signInWithEmailAndPassword(auth, document.getElementById('em').value, document.getElementById('pw').value);
+  } catch (e) { alert(t('wrong')); }
+};
+window.logout = () => signOut(auth);
+
+window.saveProduct = async (id) => {
+  const g = (k) => document.getElementById(k + id).value;
+  await updateDoc(doc(db, 'products', id), { ar: g('ar'), en: g('en'), price: Number(g('pr')), img: g('im') });
+  alert('✔');
+};
+window.delProduct = async (id) => { if (confirm('?')) await deleteDoc(doc(db, 'products', id)); };
+window.addProduct = async () => {
+  const g = (k) => document.getElementById(k).value;
+  if (!g('nar') || !g('npr')) return;
+  await addDoc(collection(db, 'products'), { ar: g('nar'), en: g('nen'), price: Number(g('npr')), img: g('nim'), emoji: '🐟' });
+  ['nar','nen','npr','nim'].forEach((k) => document.getElementById(k).value = '');
+};
 
 function render(){
   document.documentElement.dir = lang==='ar' ? 'rtl' : 'ltr';
@@ -98,26 +132,27 @@ function render(){
   const n = count();
   document.getElementById('tHome').textContent = t('home');
   document.getElementById('tCart').innerHTML = t('cart') + (n ? ` <span class="badge">${n}</span>` : '');
-  document.getElementById('tHome').className = page==='home' ? 'on' : '';
-  document.getElementById('tCart').className = page==='cart' ? 'on' : '';
+  document.getElementById('tAdmin').textContent = t('admin');
+  ['Home','Cart','Admin'].forEach((x) => document.getElementById('t'+x).className = page===x.toLowerCase() ? 'on' : '');
 
-  const app = document.getElementById('app');
+  const appEl = document.getElementById('app');
+
   if(page==='home'){
-    app.innerHTML = '<div class="grid">' + products.map(p => `
+    appEl.innerHTML = '<div class="grid">' + products.map(p => `
       <div class="card">
-        <div class="emoji">${p.emoji}</div>
+        ${pic(p)}
         <div class="info">
           <div>${lang==='ar'?p.ar:p.en}</div>
-          <div class="price">${p.price.toFixed(3)} ${t('kd')} / ${t('kg')}</div>
-          <button class="primary" onclick="add(${p.id})">${t('add')}</button>
+          <div class="price">${Number(p.price).toFixed(3)} ${t('kd')} / ${t('kg')}</div>
+          <button class="primary" onclick="add('${p.id}')">${t('add')}</button>
         </div>
       </div>`).join('') + '</div>';
-  } else {
-    if(!cart.length){ app.innerHTML = `<div class="page">${t('empty')}</div>`; return; }
-    app.innerHTML = '<div class="page">' + cart.map(i => `
+  } else if(page==='cart'){
+    if(!cart.length){ appEl.innerHTML = `<div class="page">${t('empty')}</div>`; return; }
+    appEl.innerHTML = '<div class="page">' + cart.map(i => `
       <div class="row">
         <span>${lang==='ar'?i.ar:i.en}</span>
-        <span class="qty"><button onclick="change(${i.id},-1)">−</button> ${i.qty} <button onclick="change(${i.id},1)">+</button></span>
+        <span class="qty"><button onclick="change('${i.id}',-1)">−</button> ${i.qty} <button onclick="change('${i.id}',1)">+</button></span>
         <span>${(i.price*i.qty).toFixed(3)} ${t('kd')}</span>
       </div>`).join('') + `
       <div class="row"><b>${t('total')}</b><b>${total().toFixed(3)} ${t('kd')}</b></div>
@@ -125,10 +160,34 @@ function render(){
       <input id="phone" placeholder="${t('phone')}" inputmode="tel" />
       <button class="primary" onclick="send()">${t('send')}</button>
     </div>`;
+  } else {
+    if(!user){
+      appEl.innerHTML = `<div class="page">
+        <input id="em" type="email" placeholder="${t('email')}" />
+        <input id="pw" type="password" placeholder="${t('pass')}" />
+        <button class="primary" onclick="login()">${t('login')}</button></div>`;
+      return;
+    }
+    appEl.innerHTML = '<div class="page">' +
+      `<button class="primary" style="background:#0B2545" onclick="logout()">${t('logout')}</button>` +
+      products.map(p => `
+        <div class="card" style="padding:10px;margin:12px 0">
+          <input id="ar${p.id}" value="${p.ar||''}" placeholder="${t('nameAr')}" />
+          <input id="en${p.id}" value="${p.en||''}" placeholder="${t('nameEn')}" />
+          <input id="pr${p.id}" value="${p.price}" placeholder="${t('price')}" inputmode="decimal" />
+          <input id="im${p.id}" value="${p.img||''}" placeholder="${t('img')}" />
+          <button class="primary" onclick="saveProduct('${p.id}')">${t('save')}</button>
+          <button class="primary" style="background:#e53935" onclick="delProduct('${p.id}')">${t('del')}</button>
+        </div>`).join('') +
+      `<h3>${t('newp')}</h3>
+        <input id="nar" placeholder="${t('nameAr')}" />
+        <input id="nen" placeholder="${t('nameEn')}" />
+        <input id="npr" placeholder="${t('price')}" inputmode="decimal" />
+        <input id="nim" placeholder="${t('img')}" />
+        <button class="primary" onclick="addProduct()">${t('newp')}</button></div>`;
   }
 }
 render();
 </script>
 </body>
 </html>
-
